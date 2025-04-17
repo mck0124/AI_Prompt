@@ -1,0 +1,340 @@
+# 📘 Spring MVC
+
+---
+
+## ⚠️ Eclipse 실행 중 오류 해결 팁
+
+- 알 수 없는 오류 발생 시:
+    
+    `C:/Users/사용자/.m2/repository` 디렉토리 내 모든 파일 삭제 → 프로젝트 Clean & Build 수행
+    
+
+---
+
+# ✅ Spring MVC 전체 구조 및 흐름
+
+## 🌐 요청 흐름 요약
+
+| 단계 | 설명 |
+| --- | --- |
+| 1 | 클라이언트의 요청이 `DispatcherServlet`으로 전달됨 |
+| 2 | `HandlerMapping`이 어떤 Controller가 처리할지 결정 |
+| 3 | 해당 `Controller`가 요청 처리 |
+| 4 | 처리 결과를 `ModelAndView` 객체로 반환 |
+| 5 | `ViewResolver`가 어떤 View로 보낼지 결정 |
+| 6 | View(JSP 등)가 렌더링되어 사용자에게 응답 전송 |
+
+## 🧾 DispatcherServlet 설정
+
+```xml
+<context:component-scan base-package="org.zerock.controller"/>
+
+```
+
+- 지정된 패키지(`org.zerock.controller`)의 클래스를 스캔하여 Bean으로 자동 등록
+- `@Controller`, `@Service`, `@Repository`, `@Component` 등의 어노테이션 인식
+
+---
+
+# ✅ 기본 컨트롤러 예제 (`HomeController`)
+
+## 📄 `HomeController.java`
+
+```java
+@Controller
+public class HomeController {
+
+    @RequestMapping(value = "/", method = RequestMethod.GET)
+    public String home(Locale locale, Model model) {
+        Date date = new Date();
+        DateFormat dateFormat = DateFormat.getDateTimeInstance(
+            DateFormat.LONG, DateFormat.LONG, locale);
+
+        String formattedDate = dateFormat.format(date);
+        model.addAttribute("serverTime", formattedDate);
+
+        return "home"; // → home.jsp
+    }
+}
+
+```
+
+## 📌 설명 요약
+
+| 요소 | 설명 |
+| --- | --- |
+| `@Controller` | 해당 클래스가 컨트롤러임을 지정 |
+| `@RequestMapping` | 특정 URL에 대한 요청 처리 지정 |
+| `Locale` | 클라이언트의 언어 설정 정보 (자동 주입) |
+| `Model` | View로 데이터를 전달할 때 사용 |
+| `return "home"` | ViewResolver를 통해 `/WEB-INF/views/home.jsp` 반환 |
+
+---
+
+# ✅ ViewResolver 설정
+
+```xml
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/views/"/>
+    <property name="suffix" value=".jsp"/>
+</bean>
+
+```
+
+- `return "home"` → `/WEB-INF/views/home.jsp`로 연결됨
+
+---
+
+# ✅ 예제: HelloController + hello.jsp
+
+## 📄 `HelloController.java`
+
+```java
+@Controller
+public class HelloController {
+
+    @GetMapping("/hello")
+    public String hello(Model model) {
+        model.addAttribute("message", "Hello Spring");
+        return "hello";
+    }
+}
+
+```
+
+## 📄 `hello.jsp`
+
+```
+<body>
+    결과내용: <b>${message}</b>
+</body>
+
+```
+
+---
+
+# ✅ 서비스 클래스 연동 예제
+
+## 📄 `HelloService.java`
+
+```java
+@Service
+public class HelloService {
+    public String getMessage() {
+        return "맛점 하세요.";
+    }
+}
+
+```
+
+## 📄 `HelloController.java`
+
+```java
+@Controller
+public class HelloController {
+
+    @Autowired
+    private HelloService service;
+
+    @GetMapping("/hello")
+    public String hello(Model model) {
+        model.addAttribute("message", service.getMessage());
+        return "hello";
+    }
+}
+
+```
+
+## 📄 `root-context.xml`
+
+```xml
+<context:component-scan base-package="org.zerock.service"/>
+
+```
+
+---
+
+# ✅ 의존성 주입 테스트 예제 (Restaurant, Chef)
+
+## 📄 `Chef.java`
+
+```java
+@Component
+@Data
+public class Chef {
+    private String name;
+}
+
+```
+
+## 📄 `Restaurant.java`
+
+```java
+@Component
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Restaurant {
+
+    @Autowired
+    private Chef chef;
+}
+
+```
+
+## 📄 `SampleTests.java`
+
+```java
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration("file:src/main/webapp/WEB-INF/spring/root-context.xml")
+@Log4j
+public class SampleTests {
+
+    @Autowired
+    private Restaurant restaurant;
+
+    @Test
+    public void test() {
+        assertNotNull(restaurant);
+        log.info(restaurant);
+        log.info(restaurant.getChef());
+    }
+}
+
+```
+
+---
+
+# ✅ SampleController 주요 기능 정리
+
+## 📄 기본 구조
+
+```java
+@Controller
+@Log4j
+@RequestMapping("/sample/*")
+public class SampleController {
+    ...
+}
+
+```
+
+---
+
+## 📌 기능별 메서드 정리
+
+### 🔹 `/sample/basic`
+
+```java
+@GetMapping("basic")
+public void basicGet() {
+    log.info("basic...........");
+}
+
+```
+
+- View 이름은 `basic.jsp`
+
+### 🔹 `/sample/ex01?name=홍길동&age=20`
+
+```java
+@GetMapping("ex01")
+public String ex01(SampleDTO dto)
+
+```
+
+- 파라미터 자동 바인딩 (DTO)
+- View: `ex01.jsp`
+
+### 🔹 `/sample/ex02?name=홍길동&age=20`
+
+```java
+@GetMapping("ex02")
+public String ex02(@RequestParam("name") String name,
+                   @RequestParam("age") int age)
+
+```
+
+- 파라미터 수동 바인딩
+
+### 🔹 `/sample/ex03` → Redirect to `/sample/ex04`
+
+```java
+@GetMapping("ex03")
+public String ex03(RedirectAttributes rttr)
+
+```
+
+- `rttr.addAttribute()` → URL 파라미터 전달
+
+### 🔹 `/sample/ex04?name=bbb&age=30&page=1`
+
+```java
+@GetMapping("ex04")
+public String ex04(SampleDTO dto, @ModelAttribute("page") int page)
+
+```
+
+- DTO + 개별 파라미터 함께 처리
+
+---
+
+# ✅ `@ResponseBody` 사용 예제 (`/sample/ex05`)
+
+## 📄 컨트롤러 메서드
+
+```java
+@GetMapping("ex05")
+public @ResponseBody SampleDTO ex05() {
+    SampleDTO dto = new SampleDTO();
+    dto.setName("홍길동");
+    dto.setAge(20);
+    return dto;
+}
+
+```
+
+## 📌 설명
+
+| 항목 | 설명 |
+| --- | --- |
+| `@ResponseBody` | View 반환이 아닌 JSON 등 응답 본문에 데이터 전송 |
+| 반환 타입 | `SampleDTO` 객체 → JSON 자동 변환 (jackson 사용) |
+
+## 🔸 응답 예시 (JSON)
+
+```json
+{
+  "name": "홍길동",
+  "age": 20
+}
+
+```
+
+## 📄 대체 예시: `@RestController`
+
+```java
+@RestController
+@RequestMapping("/sample")
+public class SampleRestController {
+    @GetMapping("/ex05")
+    public SampleDTO ex05() {
+        return new SampleDTO("홍길동", 20);
+    }
+}
+
+```
+
+---
+
+# ✅ 정리 요약
+
+| 항목 | 설명 |
+| --- | --- |
+| `@Controller` | Spring MVC 컨트롤러 등록 |
+| `@Service` | 비즈니스 로직 처리 클래스 등록 |
+| `@Autowired` | 스프링 빈 자동 주입 (DI) |
+| `Model` | 뷰로 데이터 전달 |
+| `ViewResolver` | 뷰 경로 자동 매핑 (/WEB-INF/views/...) |
+| `@ResponseBody` | 객체를 JSON으로 변환해 HTTP 응답으로 전송 |
+| `RedirectAttributes` | 리다이렉트 시 파라미터 전달 |
