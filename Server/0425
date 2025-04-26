@@ -1,0 +1,216 @@
+## Spring Boot REST API
+
+### 1. **application.yaml**
+
+```yaml
+server:
+  port: 8081
+
+```
+
+- 서버 포트 설정 (기본 포트 8080 → 8081로 변경)
+
+---
+
+### 2. **RestApiApplication.java**
+
+```java
+@SpringBootApplication
+public class RestApiApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(RestApiApplication.class, args);
+    }
+}
+
+```
+
+- Spring Boot 애플리케이션의 시작점 (Main 클래스)
+- `@SpringBootApplication` : 자동 설정, 컴포넌트 스캔 포함
+
+---
+
+### 3. **HelloWorldBean.java**
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class HelloWorldBean {
+    private String message;
+}
+
+```
+
+- Lombok을 활용한 단순 DTO 클래스
+- message 필드를 통해 JSON 형태로 응답 제공
+
+---
+
+### 4. **User.java**
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class User {
+    private Integer id;
+    private String name;
+    private Date joinDate;
+}
+
+```
+
+- 사용자 정보를 담는 도메인 클래스
+- id, name, 가입일 포함
+
+---
+
+### 5. **UserDaoService.java**
+
+```java
+@Component
+public class UserDaoService {
+    private static List<User> users = new ArrayList<>();
+    private static int usersCount = 3;
+
+    static {
+        users.add(new User(1, "kim", new Date()));
+        users.add(new User(2, "lee", new Date()));
+        users.add(new User(3, "park", new Date()));
+    }
+
+    public List<User> findAll() { return users; }
+    public User save(User user) { ... }
+    public User findOne(int id) { ... }
+    public User deleteById(int id) { ... }
+}
+
+```
+
+- 메모리 기반의 간단한 사용자 CRUD 서비스
+- `@Component`로 Bean 등록
+
+---
+
+### 6. **HelloController.java**
+
+```java
+@RestController
+public class HelloController {
+    @GetMapping("/hello-world")
+    public String helloWorld() { return "Hello World!!!"; }
+
+    @GetMapping("/hello-world-bean")
+    public HelloWorldBean helloWorldBean() { ... }
+
+    @GetMapping("/hello-world-bean/path-variable/{name}")
+    public HelloWorldBean helloWorldBeanPathVariable(@PathVariable String name) { ... }
+}
+
+```
+
+- 간단한 테스트용 컨트롤러
+- 문자열 및 객체 형태(JSON) 반환
+- `@PathVariable` 사용 예시 포함
+
+---
+
+### 7. **UserController.java**
+
+```java
+@RestController
+public class UserController {
+    private UserDaoService service;
+
+    public UserController(UserDaoService service) {
+        this.service = service;
+    }
+
+    @GetMapping("/users")
+    public List<User> retrieveAllUser() { ... }
+
+    @GetMapping("/users/{id}")
+    public User retrieveUser(@PathVariable int id) { ... }
+
+    @PostMapping("/users")
+    public ResponseEntity<User> createUser(@RequestBody User user) { ... }
+
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@PathVariable int id) { ... }
+}
+
+```
+
+- RESTful 방식의 User API 컨트롤러
+- CRUD 중 조회, 생성, 삭제 구현
+- 예외 처리(UserNotFoundException) 포함
+- `ResponseEntity`로 HTTP 상태코드 제어
+
+---
+
+### 8. **UserNotFoundException.java**
+
+```java
+@ResponseStatus(HttpStatus.NOT_FOUND)
+public class UserNotFoundException extends RuntimeException {
+    public UserNotFoundException(String message) {
+        super(message);
+    }
+}
+
+```
+
+- 사용자 조회 시 없을 경우 발생하는 커스텀 예외
+- 404 NOT FOUND 상태 반환
+
+---
+
+### 9. **ExceptionResponse.java**
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class ExceptionResponse {
+    private Date timestamp;
+    private String message;
+    private String details;
+}
+
+```
+
+- 예외 발생 시 클라이언트에 전달할 에러 응답 포맷 정의
+
+---
+
+### 10. **CustomizedResponseEntityExceptionHandler.java**
+
+```java
+@ControllerAdvice
+public class CustomizedResponseEntityExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(Exception.class)
+    public final ResponseEntity<Object> handleAllExceptions(Exception ex, WebRequest request) { ... }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public final ResponseEntity<Object> handleUserNotFoundException(Exception e, WebRequest request) { ... }
+}
+
+```
+
+- 전역 예외 처리 클래스
+- 모든 컨트롤러에서 발생하는 예외를 공통 처리
+- HTTP 500, 404 에러 커스터마이징
+
+---
+
+## 전체 흐름 요약
+
+1. **서버 구동**: `RestApiApplication` 실행
+2. **엔드포인트**
+    - `/hello-world` → 문자열 반환
+    - `/users` → 사용자 리스트 조회 (GET), 사용자 생성 (POST)
+    - `/users/{id}` → 사용자 조회/삭제
+3. **예외 처리**
+    - 존재하지 않는 사용자 접근 시 `UserNotFoundException` 발생
+    - `@ControllerAdvice`를 통해 에러 메시지 일괄 처리
